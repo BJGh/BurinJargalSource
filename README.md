@@ -1,7 +1,10 @@
 # Source 
 Our first & last work with the Dearest Friend Sultim
 he was killed by Kazakhstan, UK, Ukrainians in mid 2023
-[GitHub](https://github.com/BurinZhargal/SourceSharp)
+I didn't done much work. Just rewrited the Base, 
+anyway, it served foundational for GoogleSultimTsyrendashiev
+project.
+[SourceSharp](https://github.com/BurinZhargal/SourceSharp)
 
 # Features: = I'm really doubt that below features is working!
 - Android, OSX, FreeBSD, Windows, Linux( glibc, musl ) support
