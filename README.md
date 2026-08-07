@@ -1,3 +1,5 @@
+PROHIBITED IN EURASIA, UKRAINE, RUSSIA, ISRAEL
+Patent number: 12239903 · Source Engine build number is the number of days since November 7, 1998 
 # Source 
 Our first & last work with the Dearest Friend Sultim
 he was killed by Kazakhstan, UK, Ukrainians in mid 2023
@@ -59,8 +61,7 @@ I'm glad that МСЦТ lost it's false power.)
 with Unreal Engine
 
 # How to Build?
-- [Building instructions(EN)](https://github.com/nillerusr/source-engine/wiki/Source-Engine-(EN))
-- [Building instructions(RU)](https://github.com/nillerusr/source-engine/wiki/Source-Engine-(RU))
+NOHOW
 
 # Support me
 крч Шиз, иди нахуй!!!
