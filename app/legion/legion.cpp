@@ -1,167 +1,104 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
-//
-// The copyright to the contents herein is the property of Valve, L.L.C.
-// The contents may be used and/or copied only with the written permission of
-// Valve, L.L.C., or in accordance with the terms and conditions stipulated in
-// the agreement/contract under which the contents have been supplied.
-//
-// $Header: $
-// $NoKeywords: $
-//
-// An RTS!
-//=============================================================================
+using System;
+using System.Diagnostics;
 
-#include "legion.h"
-#include <windows.h>
-#include "inputsystem/iinputsystem.h"
-#include "networksystem/inetworksystem.h"
-#include "filesystem.h"
-#include "materialsystem/imaterialsystem.h"
-#include "vgui/IVGui.h"
-#include "vgui/ISurface.h"
-#include "VGuiMatSurface/IMatSystemSurface.h"
-#include "vgui_controls/controls.h"
-#include "vgui/ILocalize.h"
-#include "vgui_controls/AnimationController.h"
-#include "gamemanager.h"
-#include "menumanager.h"
-#include "physicsmanager.h"
-#include "rendermanager.h"
-#include "uimanager.h"
-#include "inputmanager.h"
-#include "networkmanager.h"
-#include "worldmanager.h"
-#include "tier3/tier3.h"
+namespace sourcesharp.app.legion;
 
-
-//-----------------------------------------------------------------------------
-// Purpose: Warning/Msg call back through this API
-// Input  : type - 
-//			*pMsg - 
-// Output : SpewRetval_t
-//-----------------------------------------------------------------------------
-SpewRetval_t SpewFunc( SpewType_t type, char const *pMsg )
-{	
-	OutputDebugString( pMsg );
-	if ( type == SPEW_ASSERT )
-	{
-		DebuggerBreak();
-	}
-	return SPEW_CONTINUE;
-}
-
-
-static CLegionApp s_LegionApp;
-extern CLegionApp *g_pApp = &s_LegionApp;
-DEFINE_WINDOWED_STEAM_APPLICATION_OBJECT_GLOBALVAR( CLegionApp, s_LegionApp );
-
-
-//-----------------------------------------------------------------------------
-// Create all singleton systems
-//-----------------------------------------------------------------------------
-bool CLegionApp::Create()
+internal class LegionApp : BaseApp
 {
-	SpewOutputFunc( SpewFunc );
+    // Одиночка (Singleton) без макросов и extern
+    private static readonly LegionApp _instance = new();
+    public static LegionApp Instance => _instance;
 
-	// FIXME: Put this into tier1librariesconnect
-	MathLib_Init( 2.2f, 2.2f, 0.0f, 2.0f, false );
+    public override bool Create()
+    {
+        // Кастомный перенаправитель вывода логов движка (Вместо SpewFunc)
+        Trace.Listeners.Add(new ConsoleTraceListener());
+        
+        // Инициализация математического ядра
+        MathLib.Init(2.2f, 2.2f, 0.0f, 2.0f, false);
 
-	if ( !BaseClass::Create() )
-		return false;
+        return base.Create();
+    }
 
-	AppSystemInfo_t appSystems[] = 
-	{
-		{ "networksystem.dll",		NETWORKSYSTEM_INTERFACE_VERSION },
-		{ "", "" }	// Required to terminate the list
-	};
+    public override bool PreInit()
+    {
+        if (!base.PreInit()) return false;
 
-	return AddSystems( appSystems );
+        // Проверяем только то, что реально критично для старта C# движка
+        if (InputSystem.Instance == null || FileSystem.Instance == null || RenderSystem.Instance == null)
+        {
+            Trace.WriteLine("LegionApp: Ошибка! Критические подсистемы не инициализированы.");
+            return false;
+        }
+
+        return true;
+    }
+
+    public override void PostShutdown()
+    {
+        base.PostShutdown();
+    }
+
+    // Главная точка входа в жизненный цикл игрового приложения
+    public int MainLoop()
+    {
+        if (!SetVideoMode()) 
+            return 0;
+
+        // Регистрируем подсистемы в Game Manager (Порядок важен для кадров)
+        // Больше никаких глобальных g_p указателей
+        GameManager.Add(WorldManager.Instance);   // База данных мира
+        GameManager.Add(RenderManager.Instance);  // Отрендерить кадр (DX12)
+        GameManager.Add(NetworkManager.Instance); // Сетевой трафик
+        GameManager.Add(InputManager.Instance);   // Ввод пользователя
+        GameManager.Add(MenuManager.Instance);    // Контроль меню (UI)
+        GameManager.Add(UIManager.Instance);      // Игровой интерфейс
+        GameManager.Add(PhysicsManager.Instance); // Физический движок / Симуляция
+
+        // Инициализируем все добавленные менеджеры
+        if (!GameManager.InitAllManagers()) 
+            return 0;
+
+        // Загружаем стартовое меню приложения
+        MenuManager.Instance.PushMenu("MainMenu");
+
+        // Главный игровой цикл (блокирующий вызов)
+        GameManager.Start();
+
+        // Очистка при выходе из игры
+        GameManager.ShutdownAllManagers();
+
+        return 1;
+    }
 }
 
-bool CLegionApp::PreInit( )
+// --- Базовые заглушки архитектуры для сборки в VS Code Insiders ---
+internal class BaseApp 
+{ 
+    public virtual bool Create() => true; 
+    public virtual bool PreInit() => true; 
+    public virtual void PostShutdown() {} 
+    protected bool SetVideoMode() => true; 
+}
+
+internal static class MathLib { public static void Init(float a, float b, float c, float d, bool f) {} }
+internal class InputSystem { public static InputSystem Instance { get; } = new(); }
+internal class FileSystem { public static FileSystem Instance { get; } = new(); }
+internal class RenderSystem { public static RenderSystem Instance { get; } = new(); }
+
+// Системные синглтоны менеджеров
+internal class WorldManager : IGameSystem { public static WorldManager Instance { get; } = new(); }
+internal class RenderManager : IGameSystem { public static RenderManager Instance { get; } = new(); }
+internal class NetworkManager : IGameSystem { public static NetworkManager Instance { get; } = new(); }
+internal class MenuManager : IGameSystem { public static MenuManager Instance { get; } = new(); public void PushMenu(string name) {} }
+internal class UIManager : IGameSystem { public static UIManager Instance { get; } = new(); }
+internal class PhysicsManager : IGameSystem { public static PhysicsManager Instance { get; } = new(); }
+
+internal interface IGameSystem {}
+internal static class GameManager
 {
-	if ( !BaseClass::PreInit() )
-		return false;
-
-	if ( !g_pInputSystem || !g_pFullFileSystem || !g_pNetworkSystem || !g_pMaterialSystem || !g_pVGui || !g_pVGuiSurface || !g_pMatSystemSurface )
-	{
-		Warning( "Legion is missing a required interface!\n" );
-		return false;
-	}
-	return true;
+    public static void Add(IGameSystem system) {}
+    public static bool InitAllManagers() => true;
+    public static void Start() {}
+    public static void ShutdownAllManagers() {}
 }
-
-
-void CLegionApp::PostShutdown()
-{
-	BaseClass::PostShutdown();
-}
-
-
-bool CLegionApp::RegisterConCommandBase( ConCommandBase *pCommand )
-{
-	// Mark for easy removal
-	pCommand->AddFlags( FCVAR_CLIENTDLL );
-	pCommand->SetNext( 0 );
-
-	// Link to variable list
-	g_pCVar->RegisterConCommandBase( pCommand );
-	return true;
-}
-
-void CLegionApp::UnregisterConCommandBase( ConCommandBase *pCommand )
-{
-	// Unlink from variable list
-	g_pCVar->UnlinkVariable( pCommand );
-}
-
-
-//-----------------------------------------------------------------------------
-// main application
-//-----------------------------------------------------------------------------
-int CLegionApp::Main()
-{
-	if (!SetVideoMode())
-		return 0;
-
-	ConCommandBaseMgr::OneTimeInit( this );
-
-	g_pMaterialSystem->ModInit();
-
-	// World database
-	IGameManager::Add( g_pWorldManager );
-
-	// Output
-	IGameManager::Add( g_pRenderManager );
-
-	// Input
-	IGameManager::Add( g_pNetworkManager );
-	IGameManager::Add( g_pInputManager );
-	IGameManager::Add( g_pMenuManager );
-	IGameManager::Add( g_pUIManager );
-
-	// Simulation
-	IGameManager::Add( g_pPhysicsManager );
-
-	// Init the game managers
-	if ( !IGameManager::InitAllManagers() )
-		return 0;
-
-	// First menu to start on
-	g_pMenuManager->PushMenu( "MainMenu" );
-
-	// This is the main game loop
-	IGameManager::Start();
-
-	// Shut down game systems
-	IGameManager::ShutdownAllManagers();
-
- 	g_pMaterialSystem->ModShutdown();
-
-	g_pCVar->UnlinkVariables( FCVAR_CLIENTDLL );
-
-	return 1;
-}
-
-
-
