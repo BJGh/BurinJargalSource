@@ -1,6 +1,7 @@
 # Source 
-
-Source code is based on TF2 2018 leak. Don't use it for commercial purposes.
+Our first & last work with the Dearest Friend Sultim
+he was killed by Kazakhstan, UK, Ukrainians in mid 2023
+[GitHub](https://github.com/BurinZhargal/SourceSharp)
 
 # Features: = I'm really doubt that below features is working!
 - Android, OSX, FreeBSD, Windows, Linux( glibc, musl ) support
